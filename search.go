@@ -38,7 +38,6 @@ const searchURL = "https://deps.dev/_/search?q=%s&kind=PACKAGE&system=GO&page=%d
 func searchParallelly(ctx context.Context, q string) ([]searchResponse, error) {
 	g, ctx := errgroup.WithContext(ctx)
 	var (
-		client   = newHedgingClient()
 		qEscaped = url.QueryEscape(q)
 		n        = 5
 		resps    = make([]searchResponse, n)
@@ -48,7 +47,7 @@ func searchParallelly(ctx context.Context, q string) ([]searchResponse, error) {
 		g.Go(func() error {
 			var (
 				url    = fmt.Sprintf(searchURL, qEscaped, i)
-				b, err = client.get(ctx, url)
+				b, err = defaultClient.get(ctx, url)
 			)
 			if err != nil {
 				return err
