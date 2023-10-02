@@ -108,7 +108,7 @@ func (*gobin) List(ctx context.Context) {
 		}
 		// TODO: maybe we could also print any updates are available from
 		// https://docs.deps.dev/api/v3alpha/#getpackage?
-		fmt.Println(info.Main.Path + "@" + info.Main.Version)
+		fmt.Println(info.Path + "@" + info.Main.Version)
 		return nil
 	}
 	assert.Nil(filepath.WalkDir(path(), walk))
