@@ -93,7 +93,7 @@ func path() string {
 	if p, ok := os.LookupEnv("GOPATH"); ok {
 		return filepath.Join(p, "bin")
 	}
-	return filepath.Join(os.Getenv("HOME"), "go", "bin")
+	return filepath.Join(assert.Ok(os.UserHomeDir()), "go", "bin")
 }
 
 // List all installed packages.
