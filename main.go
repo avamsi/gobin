@@ -45,13 +45,34 @@ func searchSuffix(ctx context.Context, q string) ([]pkge, error) {
 	return out, nil
 }
 
-// Search for packages with the given name (suffix matched).
-func (*gobin) Search(ctx context.Context, name string) error {
-	pkgs, err := searchSuffix(ctx, name)
-	for _, pkg := range pkgs {
-		fmt.Println(pkg)
+func (*gobin) path() string {
+	if v, ok := os.LookupEnv("GOBIN"); ok {
+		return v
 	}
-	return err
+	if v, ok := os.LookupEnv("GOPATH"); ok {
+		return filepath.Join(v, "bin")
+	}
+	return filepath.Join(assert.Ok(os.UserHomeDir()), "go", "bin")
+}
+
+// Search for packages with the given name (suffix matched).
+func (gb *gobin) Search(ctx context.Context, name string) error {
+	pkgs, err := searchSuffix(ctx, name)
+	if err != nil {
+		return err
+	}
+	in := newInstalled(gb.path())
+	for _, pkg := range pkgs {
+		switch v := in.version(pkg); v {
+		case "":
+			fmt.Println(pkg)
+		case pkg.version:
+			fmt.Printf("%s (already installed)\n", pkg)
+		default:
+			fmt.Printf("%s (already installed: %s)\n", pkg, v)
+		}
+	}
+	return nil
 }
 
 func install(ctx context.Context, pkg pkge) error {
@@ -83,18 +104,8 @@ func (*gobin) Install(ctx context.Context, name string) error {
 	return install(ctx, pkg)
 }
 
-func path() string {
-	if p, ok := os.LookupEnv("GOBIN"); ok {
-		return p
-	}
-	if p, ok := os.LookupEnv("GOPATH"); ok {
-		return filepath.Join(p, "bin")
-	}
-	return filepath.Join(assert.Ok(os.UserHomeDir()), "go", "bin")
-}
-
 // List all installed packages.
-func (*gobin) List(ctx context.Context) {
+func (gb *gobin) List(ctx context.Context) {
 	walk := func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -108,14 +119,14 @@ func (*gobin) List(ctx context.Context) {
 		fmt.Println(pkge{info.Path, info.Main.Version})
 		return nil
 	}
-	assert.Nil(filepath.WalkDir(path(), walk))
+	assert.Nil(filepath.WalkDir(gb.path(), walk))
 }
 
 // Uninstall the package with the given name.
 //
 //cli:aliases remove, rm
-func (*gobin) Uninstall(name string) error {
-	return os.Remove(filepath.Join(path(), name))
+func (gb *gobin) Uninstall(name string) error {
+	return os.Remove(filepath.Join(gb.path(), name))
 }
 
 //go:generate go run github.com/avamsi/climate/cmd/climate --out=md.cli
