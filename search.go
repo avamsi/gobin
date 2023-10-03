@@ -20,11 +20,11 @@ func search(ctx context.Context, q string) ([]searchResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	pkgs := make([]searchResult, 0, resps[0].TotalMatches)
+	results := make([]searchResult, 0, resps[0].TotalMatches)
 	for _, resp := range resps {
-		pkgs = append(pkgs, resp.Results...)
+		results = append(results, resp.Results...)
 	}
-	return pkgs, nil
+	return results, nil
 }
 
 type searchResponse struct {

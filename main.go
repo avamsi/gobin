@@ -22,7 +22,7 @@ import (
 // gobin is a Go package manager.
 type gobin struct{}
 
-func searchSuffix(ctx context.Context, q string) ([]string, error) {
+func searchSuffix(ctx context.Context, q string) ([]pkge, error) {
 	pkgs, err := search(ctx, q)
 	if err != nil {
 		return nil, err
@@ -38,9 +38,9 @@ func searchSuffix(ctx context.Context, q string) ([]string, error) {
 	if len(pkgs) == 0 {
 		return nil, fmt.Errorf("no packages found for %q", q)
 	}
-	out := make([]string, len(pkgs))
+	out := make([]pkge, len(pkgs))
 	for i, pkg := range pkgs {
-		out[i] = pkg.Name + "@" + pkg.DefaultVersion
+		out[i] = pkge{pkg.Name, pkg.DefaultVersion}
 	}
 	return out, nil
 }
@@ -54,8 +54,8 @@ func (*gobin) Search(ctx context.Context, name string) error {
 	return err
 }
 
-func install(ctx context.Context, pkg string) error {
-	cmd := exec.CommandContext(ctx, "go", "install", pkg)
+func install(ctx context.Context, pkg pkge) error {
+	cmd := exec.CommandContext(ctx, "go", "install", pkg.String())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
@@ -105,7 +105,7 @@ func (*gobin) List(ctx context.Context) {
 		}
 		// TODO: maybe we could also print any updates are available from
 		// https://docs.deps.dev/api/v3alpha/#getpackage?
-		fmt.Println(info.Path + "@" + info.Main.Version)
+		fmt.Println(pkge{info.Path, info.Main.Version})
 		return nil
 	}
 	assert.Nil(filepath.WalkDir(path(), walk))
