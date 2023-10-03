@@ -48,13 +48,10 @@ func searchSuffix(ctx context.Context, q string) ([]string, error) {
 // Search for packages with the given name (suffix matched).
 func (*gobin) Search(ctx context.Context, name string) error {
 	pkgs, err := searchSuffix(ctx, name)
-	if err != nil {
-		return err
-	}
 	for _, pkg := range pkgs {
 		fmt.Println(pkg)
 	}
-	return nil
+	return err
 }
 
 func install(ctx context.Context, pkg string) error {
