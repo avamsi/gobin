@@ -3,11 +3,11 @@ module github.com/avamsi/gobin
 go 1.20
 
 require (
-	github.com/avamsi/climate v0.0.0-20231002185627-2362654394dc
-	github.com/avamsi/climate/cmd/climate v0.0.0-20231002185627-2362654394dc
-	github.com/avamsi/ergo v0.0.0-20230928064949-ee3c21551b95
+	github.com/avamsi/climate v0.0.0-20231004052943-3be800f8abdb
+	github.com/avamsi/climate/cmd/climate v0.0.0-20231004052943-3be800f8abdb
+	github.com/avamsi/ergo v0.0.0-20231006063304-8e8fd5ff8975
 	github.com/erikgeiser/promptkit v0.9.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.4.0
 )
 
 require (
@@ -33,10 +33,10 @@ require (
 	github.com/sanity-io/litter v1.5.5 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/exp v0.0.0-20231005195138-3e424a577f31 // indirect
+	golang.org/x/mod v0.13.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 )

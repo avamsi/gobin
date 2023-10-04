@@ -16,8 +16,10 @@ import (
 
 	"github.com/avamsi/climate"
 	"github.com/avamsi/ergo/assert"
+	"github.com/avamsi/ergo/group"
 	"github.com/erikgeiser/promptkit"
 	"github.com/erikgeiser/promptkit/selection"
+	"golang.org/x/sync/errgroup"
 )
 
 // gobin is a Go package manager.
@@ -107,6 +109,17 @@ func (*gobin) Install(ctx context.Context, name string) error {
 	return install(ctx, pkg)
 }
 
+func readdirnames(d string) ([]string, error) {
+	f, err := os.Open(d)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return f.Readdirnames(-1)
+}
+
 const versionsURL = "https://api.deps.dev/v3alpha/systems/GO/packages/"
 
 type versionsResponse struct {
@@ -143,29 +156,45 @@ func availableVersion(ctx context.Context, pkgPath string) string {
 }
 
 // List all installed packages.
-func (gb *gobin) List(ctx context.Context) {
-	// TODO: do we really need walk here? Would Readdirnames be faster?
-	// TODO: parallelize this.
-	walk := func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		info, err := buildinfo.ReadFile(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", path, err)
-		}
-		pkg := pkge{info.Path, info.Main.Version}
-		switch v := availableVersion(ctx, pkg.path); v {
-		case "":
-			fmt.Println(pkg)
-		case pkg.version:
-			fmt.Printf("%s (already up-to-date)\n", pkg)
-		default:
-			fmt.Printf("%s (update available: %s)\n", pkg, v)
-		}
-		return nil
+func (gb *gobin) List(ctx context.Context) error {
+	var (
+		gobin      = gb.path()
+		names, err = readdirnames(gobin)
+	)
+	if err != nil {
+		return err
 	}
-	assert.Nil(filepath.WalkDir(gb.path(), walk))
+	var (
+		g      errgroup.Group
+		stdout = group.NewWriter(os.Stdout, len(names))
+		stderr = group.NewWriter(os.Stderr, len(names))
+	)
+	defer stdout.Close()
+	defer stderr.Close()
+	for _, name := range names {
+		var (
+			path   = filepath.Join(gobin, name)
+			stdout = stdout.NewSection()
+			stderr = stderr.NewSection()
+		)
+		g.Go(func() error {
+			info, err := buildinfo.ReadFile(path)
+			if err != nil {
+				fmt.Fprintf(stderr, "Skipping %s: %v\n", path, err)
+			}
+			pkg := pkge{info.Path, info.Main.Version}
+			switch v := availableVersion(ctx, pkg.path); v {
+			case "":
+				fmt.Fprintln(stdout, pkg)
+			case pkg.version:
+				fmt.Fprintf(stdout, "%s (already up-to-date)\n", pkg)
+			default:
+				fmt.Fprintf(stdout, "%s (update available: %s)\n", pkg, v)
+			}
+			return nil
+		})
+	}
+	return g.Wait()
 }
 
 // Uninstall the package with the given name.
