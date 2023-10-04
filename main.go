@@ -76,6 +76,8 @@ func (gb *gobin) Search(ctx context.Context, name string) error {
 }
 
 func install(ctx context.Context, pkg pkge) error {
+	// #nosec G204 -- G204 doesn't like pkg.String here, but it should be fine
+	// as we still own that type (and its content sources).
 	cmd := exec.CommandContext(ctx, "go", "install", pkg.String())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
