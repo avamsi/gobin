@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,7 +70,7 @@ func (gb *gobin) Search(ctx context.Context, name string) error {
 		case pkg.version:
 			fmt.Printf("%s (already installed)\n", pkg)
 		default:
-			fmt.Printf("%s (already installed: %s)\n", pkg, v)
+			fmt.Printf("%s (installed: %s)\n", pkg, v)
 		}
 	}
 	return nil
@@ -106,8 +107,45 @@ func (*gobin) Install(ctx context.Context, name string) error {
 	return install(ctx, pkg)
 }
 
+const versionsURL = "https://api.deps.dev/v3alpha/systems/GO/packages/"
+
+type versionsResponse struct {
+	PackageKey struct {
+		System string
+		Name   string
+	}
+	Versions []struct {
+		VersionKey struct {
+			System  string
+			Name    string
+			Version string
+		}
+		IsDefault bool
+	}
+}
+
+func availableVersion(ctx context.Context, pkgPath string) string {
+	var (
+		url    = versionsURL + url.PathEscape(pkgPath)
+		b, err = defaultClient.get(ctx, url)
+	)
+	if err != nil {
+		return ""
+	}
+	resp := jsonUnmarshal[versionsResponse](b)
+	// TODO: compare versions semantically (and return the latest).
+	for _, v := range resp.Versions {
+		if v.IsDefault {
+			return v.VersionKey.Version
+		}
+	}
+	return ""
+}
+
 // List all installed packages.
 func (gb *gobin) List(ctx context.Context) {
+	// TODO: do we really need walk here? Would Readdirnames be faster?
+	// TODO: parallelize this.
 	walk := func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -116,9 +154,15 @@ func (gb *gobin) List(ctx context.Context) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", path, err)
 		}
-		// TODO: maybe we could also print any updates are available from
-		// https://docs.deps.dev/api/v3alpha/#getpackage?
-		fmt.Println(pkge{info.Path, info.Main.Version})
+		pkg := pkge{info.Path, info.Main.Version}
+		switch v := availableVersion(ctx, pkg.path); v {
+		case "":
+			fmt.Println(pkg)
+		case pkg.version:
+			fmt.Printf("%s (already up-to-date)\n", pkg)
+		default:
+			fmt.Printf("%s (update available: %s)\n", pkg, v)
+		}
 		return nil
 	}
 	assert.Nil(filepath.WalkDir(gb.path(), walk))
