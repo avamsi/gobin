@@ -169,15 +169,15 @@ func (gb *gobin) List(ctx context.Context) error {
 		stdout = group.NewWriter(os.Stdout, len(names))
 		stderr = group.NewWriter(os.Stderr, len(names))
 	)
-	defer stdout.Close()
-	defer stderr.Close()
-	for _, name := range names {
+	for i, name := range names {
 		var (
 			path   = filepath.Join(gobin, name)
-			stdout = stdout.NewSection()
-			stderr = stderr.NewSection()
+			stdout = stdout.Section(i)
+			stderr = stderr.Section(i)
 		)
 		g.Go(func() error {
+			defer stdout.Close()
+			defer stderr.Close()
 			info, err := buildinfo.ReadFile(path)
 			if err != nil {
 				fmt.Fprintf(stderr, "Skipping %s: %v\n", path, err)
@@ -194,7 +194,7 @@ func (gb *gobin) List(ctx context.Context) error {
 			return nil
 		})
 	}
-	return g.Wait()
+	return errors.Join(g.Wait(), stdout.Close(), stderr.Close())
 }
 
 // Uninstall the package with the given name.
