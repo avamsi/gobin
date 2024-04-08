@@ -7,7 +7,7 @@ require (
 	github.com/avamsi/climate/cmd/climate v0.0.0-20231010040003-20a597e01358
 	github.com/avamsi/ergo v0.0.0-20231013073317-327353949369
 	github.com/erikgeiser/promptkit v0.9.0
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.7.0
 )
 
 require (
