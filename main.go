@@ -2,83 +2,97 @@ package main
 
 import (
 	"context"
-	"debug/buildinfo"
 	"errors"
 	"fmt"
-	"io/fs"
-	"net/url"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	_ "embed"
 
 	"github.com/avamsi/climate"
 	"github.com/avamsi/ergo/assert"
-	"github.com/avamsi/ergo/group"
+	ergoerrors "github.com/avamsi/ergo/errors"
+	"github.com/avamsi/gobin/internal/client"
+	"github.com/avamsi/gobin/internal/repo"
 	"github.com/erikgeiser/promptkit"
 	"github.com/erikgeiser/promptkit/selection"
-	"golang.org/x/sync/errgroup"
 )
 
 // gobin is a Go package manager.
 type gobin struct{}
 
-func searchSuffix(ctx context.Context, q string) ([]pkge, error) {
-	pkgs, err := search(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	i := 0
+type repository interface {
+	Lookup(ctx context.Context, pkgPath string) (pkg repo.Pkg, err error)
+	Search(ctx context.Context, q string) (pkgs []repo.Pkg, err error)
+}
+
+var (
+	gobinDir = sync.OnceValue(func() string {
+		if v, ok := os.LookupEnv("GOBIN"); ok {
+			return v
+		}
+		if v, ok := os.LookupEnv("GOPATH"); ok {
+			return filepath.Join(v, "bin")
+		}
+		return filepath.Join(assert.Ok(os.UserHomeDir()), "go/bin")
+	})
+
+	installed = sync.OnceValue(func() repository {
+		return repo.NewInstalled(gobinDir())
+	})
+
+	defaultClient = client.Hedge(&http.Client{Timeout: time.Minute}, time.Second)
+
+	depsdev repository = repo.NewDepsdev(defaultClient, 100)
+	pkgsite repository = repo.NewPkgsite(defaultClient, "https://pkg.go.dev", 100)
+
+	errNoPkgsFound = errors.New("no packages found")
+)
+
+func search(ctx context.Context, q string) ([]repo.Pkg, error) {
+	var (
+		pkgs, err = pkgsite.Search(ctx, q)
+		i         = 0
+	)
 	for _, pkg := range pkgs {
-		if strings.HasSuffix(pkg.Name, q) {
+		if strings.HasSuffix(pkg.Path, q) {
 			pkgs[i] = pkg
 			i++
 		}
 	}
-	pkgs = pkgs[:i]
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no packages found for %q", q)
+	if i == 0 && err == nil { // if _no_ error
+		err = errNoPkgsFound
 	}
-	out := make([]pkge, len(pkgs))
-	for i, pkg := range pkgs {
-		out[i] = pkge{pkg.Name, pkg.DefaultVersion}
-	}
-	return out, nil
-}
-
-func (*gobin) path() string {
-	if v, ok := os.LookupEnv("GOBIN"); ok {
-		return v
-	}
-	if v, ok := os.LookupEnv("GOPATH"); ok {
-		return filepath.Join(v, "bin")
-	}
-	return filepath.Join(assert.Ok(os.UserHomeDir()), "go", "bin")
+	return pkgs[:i:i], err
 }
 
 // Search for packages with the given name (suffix matched).
-func (gb *gobin) Search(ctx context.Context, name string) error {
-	pkgs, err := searchSuffix(ctx, name)
-	if err != nil {
-		return err
-	}
-	in := newInstalled(gb.path())
+func (gb *gobin) Search(ctx context.Context, name string) (err error) {
+	defer ergoerrors.Annotatef(&err, "gobin.Search(%q)", name)
+	pkgs, merr := search(ctx, name)
 	for _, pkg := range pkgs {
-		switch v := in.version(pkg); v {
+		localPkg, err := installed().Lookup(ctx, pkg.Path)
+		if err != nil {
+			merr = ergoerrors.Join(merr, err)
+		}
+		switch v := localPkg.Version; v {
 		case "":
 			fmt.Println(pkg)
-		case pkg.version:
+		case pkg.Version:
 			fmt.Printf("%s (already installed)\n", pkg)
 		default:
 			fmt.Printf("%s (installed: %s)\n", pkg, v)
 		}
 	}
-	return nil
+	return merr
 }
 
-func install(ctx context.Context, pkg pkge) error {
+func install(ctx context.Context, pkg repo.Pkg) error {
 	// #nosec G204 -- G204 doesn't like pkg.String here, but it should be fine
 	// as we still own that type (and its content sources).
 	cmd := exec.CommandContext(ctx, "go", "install", pkg.String())
@@ -90,8 +104,9 @@ func install(ctx context.Context, pkg pkge) error {
 }
 
 // Install the package with the given name (suffix matched).
-func (*gobin) Install(ctx context.Context, name string) error {
-	pkgs, err := searchSuffix(ctx, name)
+func (*gobin) Install(ctx context.Context, name string) (err error) {
+	defer ergoerrors.Annotatef(&err, "gobin.Install(%q)", name)
+	pkgs, err := search(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -109,102 +124,44 @@ func (*gobin) Install(ctx context.Context, name string) error {
 	return install(ctx, pkg)
 }
 
-func readdirnames(d string) ([]string, error) {
-	f, err := os.Open(d)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return f.Readdirnames(-1)
-}
-
-const versionsURL = "https://api.deps.dev/v3alpha/systems/GO/packages/"
-
-type versionsResponse struct {
-	PackageKey struct {
-		System string
-		Name   string
-	}
-	Versions []struct {
-		VersionKey struct {
-			System  string
-			Name    string
-			Version string
-		}
-		IsDefault bool
-	}
-}
-
-func availableVersion(ctx context.Context, pkgPath string) string {
-	var (
-		url    = versionsURL + url.PathEscape(pkgPath)
-		b, err = defaultClient.get(ctx, url)
-	)
-	if err != nil {
-		return ""
-	}
-	resp := jsonUnmarshal[versionsResponse](b)
-	// TODO: compare versions semantically (and return the latest).
-	for _, v := range resp.Versions {
-		if v.IsDefault {
-			return v.VersionKey.Version
-		}
-	}
-	return ""
-}
-
 // List all installed packages.
-func (gb *gobin) List(ctx context.Context) error {
+func (gb *gobin) List(ctx context.Context) (err error) {
+	defer ergoerrors.Annotate(&err, "gobin.List")
 	var (
-		gobin      = gb.path()
-		names, err = readdirnames(gobin)
+		pkgs, merr = installed().Search(ctx, "")
+		wg         sync.WaitGroup
+		mutex      sync.Mutex
 	)
-	if err != nil {
-		return err
-	}
-	var (
-		g      errgroup.Group
-		stdout = group.NewWriter(os.Stdout, len(names))
-		stderr = group.NewWriter(os.Stderr, len(names))
-	)
-	for i, name := range names {
-		var (
-			path   = filepath.Join(gobin, name)
-			stdout = stdout.Section(i)
-			stderr = stderr.Section(i)
-		)
-		g.Go(func() error {
-			defer stdout.Close()
-			defer stderr.Close()
-			info, err := buildinfo.ReadFile(path)
-			if err != nil {
-				fmt.Fprintf(stderr, "Skipping %s: %v\n", path, err)
-			}
-			pkg := pkge{info.Path, info.Main.Version}
-			switch v := availableVersion(ctx, pkg.path); v {
+	for _, pkg := range pkgs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			latestPkg, err := depsdev.Lookup(ctx, pkg.Path)
+			mutex.Lock()
+			defer mutex.Unlock()
+			switch v := latestPkg.Version; v {
 			case "":
-				fmt.Fprintln(stdout, pkg)
-			case pkg.version:
-				fmt.Fprintf(stdout, "%s (already up-to-date)\n", pkg)
+				fmt.Println(pkg)
+			case pkg.Version:
+				fmt.Printf("%s (already up-to-date)\n", pkg)
 			default:
-				fmt.Fprintf(stdout, "%s (update available: %s)\n", pkg, v)
+				fmt.Printf("%s (update available: %s)\n", pkg, v)
 			}
-			return nil
-		})
+			merr = ergoerrors.Join(merr, err)
+		}()
 	}
-	return errors.Join(g.Wait(), stdout.Close(), stderr.Close())
+	wg.Wait()
+	return merr
 }
 
 // Uninstall the package with the given name.
 //
 //cli:aliases remove, rm
 func (gb *gobin) Uninstall(name string) error {
-	return os.Remove(filepath.Join(gb.path(), name))
+	return os.Remove(filepath.Join(gobinDir(), name))
 }
 
-//go:generate go run github.com/avamsi/climate/cmd/climate --out=md.cli
+//go:generate go run github.com/avamsi/climate/cmd/cligen --out=md.cli
 //go:embed md.cli
 var md []byte
 
