@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"github.com/avamsi/climate"
 	"github.com/avamsi/ergo/assert"
 	ergoerrors "github.com/avamsi/ergo/errors"
+	"github.com/avamsi/ergo/group"
 	"github.com/avamsi/gobin/internal/client"
 	"github.com/avamsi/gobin/internal/repo"
 	"github.com/erikgeiser/promptkit"
@@ -132,30 +134,28 @@ func (*gobin) Install(ctx context.Context, name string) (err error) {
 // List all installed packages.
 func (gb *gobin) List(ctx context.Context) (err error) {
 	defer ergoerrors.Annotate(&err, "gobin.List")
-	var (
-		pkgs, merr = installed().Search(ctx, "")
-		wg         sync.WaitGroup
-		mutex      sync.Mutex
-	)
+	c := group.NewCollector(make(chan error, 1))
+	pkgs, err := installed().Search(ctx, "")
+	c.Collect(err)
+	stdout := log.New(os.Stdout, "", 0)
 	for _, pkg := range pkgs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		c.Go(func() {
 			latestPkg, err := depsdev.Lookup(ctx, pkg.Path)
-			mutex.Lock()
-			defer mutex.Unlock()
+			c.Collect(err)
 			switch v := latestPkg.Version; v {
 			case "":
-				fmt.Println(pkg)
+				stdout.Println(pkg)
 			case pkg.Version:
-				fmt.Printf("%s (already up-to-date)\n", pkg)
+				stdout.Printf("%s (already up-to-date)\n", pkg)
 			default:
-				fmt.Printf("%s (update available: %s)\n", pkg, v)
+				stdout.Printf("%s (update available: %s)\n", pkg, v)
 			}
-			merr = ergoerrors.Join(merr, err)
-		}()
+		})
 	}
-	wg.Wait()
+	var merr error
+	for err := range c.Close() {
+		merr = ergoerrors.Join(merr, err)
+	}
 	return merr
 }
 
