@@ -153,7 +153,7 @@ func (*gobin) Update(ctx context.Context, name *string) (err error) {
 			fmt.Printf("%s (already up-to-date)\n", pkg)
 			continue
 		}
-		install(ctx, latestPkg)
+		merr = ergoerrors.Join(merr, install(ctx, latestPkg))
 	}
 	return merr
 }
