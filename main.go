@@ -93,6 +93,11 @@ func (gb *gobin) Search(ctx context.Context, name string) (err error) {
 }
 
 func install(ctx context.Context, pkg repo.Pkg) error {
+	// Pkgsite truncates long versions with "...", and those won't work with
+	// `go install`, so we use "latest" instead.
+	if strings.Contains(pkg.Version, "...") {
+		pkg = pkg.Latest()
+	}
 	// #nosec G204 -- G204 doesn't like pkg.String here, but it should be fine
 	// as we still own that type (and its content sources).
 	cmd := exec.CommandContext(ctx, "go", "install", pkg.String())
