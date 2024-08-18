@@ -1,7 +1,13 @@
 package repo
 
+import "path"
+
 type Pkg struct {
 	Path, Version string
+}
+
+func (pkg Pkg) Name() string {
+	return path.Base(pkg.Path)
 }
 
 func (pkg Pkg) Latest() Pkg {

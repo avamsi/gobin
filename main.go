@@ -17,6 +17,7 @@ import (
 
 	"github.com/avamsi/climate"
 	"github.com/avamsi/ergo/assert"
+	"github.com/avamsi/ergo/deref"
 	ergoerrors "github.com/avamsi/ergo/errors"
 	"github.com/avamsi/ergo/group"
 	"github.com/avamsi/gobin/internal/client"
@@ -68,13 +69,13 @@ func search(ctx context.Context, q string) ([]repo.Pkg, error) {
 		}
 	}
 	if i == 0 && err == nil { // if _no_ error
-		err = errNoPkgsFound
+		return nil, errNoPkgsFound
 	}
 	return pkgs[:i:i], err
 }
 
 // Search for packages with the given name (suffix matched).
-func (gb *gobin) Search(ctx context.Context, name string) (err error) {
+func (*gobin) Search(ctx context.Context, name string) (err error) {
 	defer ergoerrors.Annotatef(&err, "gobin.Search(%q)", name)
 	pkgs, merr := search(ctx, name)
 	for _, pkg := range pkgs {
@@ -97,7 +98,7 @@ func (gb *gobin) Search(ctx context.Context, name string) (err error) {
 func install(ctx context.Context, pkg repo.Pkg) error {
 	// Pkgsite truncates long versions with "...", and those won't work with
 	// `go install`, so we use "latest" instead.
-	if strings.Contains(pkg.Version, "...") {
+	if pkg.Version == "" || strings.Contains(pkg.Version, "...") {
 		pkg = pkg.Latest()
 	}
 	// #nosec G204 -- G204 doesn't like pkg.String here, but it should be fine
@@ -110,7 +111,10 @@ func install(ctx context.Context, pkg repo.Pkg) error {
 	return cmd.Run()
 }
 
-// Install the package with the given name (suffix matched).
+// Install the package with the given name.
+//
+// Given name is suffix matched against package paths (via pkg.go.dev).
+// If multiple matches are found, the user is prompted to select one.
 func (*gobin) Install(ctx context.Context, name string) (err error) {
 	defer ergoerrors.Annotatef(&err, "gobin.Install(%q)", name)
 	pkgs, err := search(ctx, name)
@@ -131,8 +135,38 @@ func (*gobin) Install(ctx context.Context, name string) (err error) {
 	return install(ctx, pkg)
 }
 
+// Update the installed package(s) with the given name.
+//
+// Given name is suffix matched against names of the installed packages.
+// As such, if no name is given, all installed packages are updated.
+//
+//cli:aliases upgrade
+func (*gobin) Update(ctx context.Context, name *string) (err error) {
+	namestr := deref.Or(name, "")
+	defer ergoerrors.Annotatef(&err, "gobin.Update(%q)", namestr)
+	pkgs, merr := installed().Search(ctx, namestr)
+	for _, pkg := range pkgs {
+		fmt.Println("📦", pkg.Name())
+		latestPkg, err := depsdev.Lookup(ctx, pkg.Path)
+		merr = ergoerrors.Join(merr, err)
+		if pkg.Version != "" && pkg.Version == latestPkg.Version {
+			fmt.Printf("%s (already up-to-date)\n", pkg)
+			continue
+		}
+		install(ctx, latestPkg)
+	}
+	return merr
+}
+
+// Uninstall the package with the given name.
+//
+//cli:aliases remove, rm
+func (*gobin) Uninstall(name string) error {
+	return os.Remove(filepath.Join(gobinDir(), name))
+}
+
 // List all installed packages.
-func (gb *gobin) List(ctx context.Context) (err error) {
+func (*gobin) List(ctx context.Context) (err error) {
 	defer ergoerrors.Annotate(&err, "gobin.List")
 	c := group.NewCollector(make(chan error, 1))
 	pkgs, err := installed().Search(ctx, "")
@@ -157,13 +191,6 @@ func (gb *gobin) List(ctx context.Context) (err error) {
 		merr = ergoerrors.Join(merr, err)
 	}
 	return merr
-}
-
-// Uninstall the package with the given name.
-//
-//cli:aliases remove, rm
-func (gb *gobin) Uninstall(name string) error {
-	return os.Remove(filepath.Join(gobinDir(), name))
 }
 
 //go:generate go run github.com/avamsi/climate/cmd/cligen --out=md.cli
