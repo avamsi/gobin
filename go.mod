@@ -8,7 +8,7 @@ require (
 	github.com/avamsi/climate/cmd/cligen v0.0.0-20240818111022-85724b3004da
 	github.com/avamsi/ergo v0.0.0-20240818114324-3e186c704377
 	github.com/erikgeiser/promptkit v0.9.0
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 )
 
 require (
