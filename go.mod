@@ -3,7 +3,7 @@ module github.com/avamsi/gobin
 go 1.23
 
 require (
-	github.com/andybalholm/cascadia v1.3.2
+	github.com/andybalholm/cascadia v1.3.3
 	github.com/avamsi/climate v0.0.0-20240818111022-85724b3004da
 	github.com/avamsi/climate/cmd/cligen v0.0.0-20240818111022-85724b3004da
 	github.com/avamsi/ergo v0.0.0-20240818114324-3e186c704377
