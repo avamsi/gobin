@@ -76,7 +76,7 @@ func search(ctx context.Context, q string) ([]repo.Pkg, error) {
 
 // Search for packages with the given name (suffix matched).
 func (*gobin) Search(ctx context.Context, name string) (err error) {
-	defer ergoerrors.Annotatef(&err, "gobin.Search(%q)", name)
+	defer ergoerrors.Handlef(&err, "gobin.Search(%q)", name)
 	pkgs, merr := search(ctx, name)
 	for _, pkg := range pkgs {
 		localPkg, err := installed().Lookup(ctx, pkg.Path)
@@ -116,7 +116,7 @@ func install(ctx context.Context, pkg repo.Pkg) error {
 // Given name is suffix matched against package paths (via pkg.go.dev).
 // If multiple matches are found, the user is prompted to select one.
 func (*gobin) Install(ctx context.Context, name string) (err error) {
-	defer ergoerrors.Annotatef(&err, "gobin.Install(%q)", name)
+	defer ergoerrors.Handlef(&err, "gobin.Install(%q)", name)
 	pkgs, err := search(ctx, name)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (*gobin) Install(ctx context.Context, name string) (err error) {
 //cli:aliases upgrade
 func (*gobin) Update(ctx context.Context, name *string) (err error) {
 	namestr := deref.Or(name, "")
-	defer ergoerrors.Annotatef(&err, "gobin.Update(%q)", namestr)
+	defer ergoerrors.Handlef(&err, "gobin.Update(%q)", namestr)
 	pkgs, merr := installed().Search(ctx, namestr)
 	for _, pkg := range pkgs {
 		fmt.Println("📦", pkg.Name())
@@ -167,7 +167,7 @@ func (*gobin) Uninstall(name string) error {
 
 // List all installed packages.
 func (*gobin) List(ctx context.Context) (err error) {
-	defer ergoerrors.Annotate(&err, "gobin.List")
+	defer ergoerrors.Handle(&err, "gobin.List")
 	c := group.NewCollector(make(chan error, 1))
 	pkgs, err := installed().Search(ctx, "")
 	c.Collect(err)
@@ -193,7 +193,7 @@ func (*gobin) List(ctx context.Context) (err error) {
 	return merr
 }
 
-//go:generate go run github.com/avamsi/climate/cmd/cligen --out=md.cli
+//go:generate go tool cligen md.cli
 //go:embed md.cli
 var md []byte
 

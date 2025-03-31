@@ -29,7 +29,7 @@ func (i *Installed) lookup(name string) (Pkg, error) {
 }
 
 func (i *Installed) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer ergoerrors.Annotatef(&err, "Installed.Lookup(%q)", pkgPath)
+	defer ergoerrors.Handlef(&err, "Installed.Lookup(%q)", pkgPath)
 	pkg, err := i.lookup(pkgPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -53,7 +53,7 @@ func readdirnames(d string) ([]string, error) {
 }
 
 func (i *Installed) Search(ctx context.Context, q string) (_ []Pkg, err error) {
-	defer ergoerrors.Annotatef(&err, "Installed.Search(%q)", q)
+	defer ergoerrors.Handlef(&err, "Installed.Search(%q)", q)
 	names, err := readdirnames(i.gobin)
 	if err != nil {
 		return nil, err

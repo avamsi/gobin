@@ -52,7 +52,7 @@ func get[T any](ctx context.Context, client Client, url string, v *T) error {
 var errNotFound = errors.New("not found")
 
 func (d *Depsdev) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer ergoerrors.Annotatef(&err, "Depsdev.Lookup(%q)", pkgPath)
+	defer ergoerrors.Handlef(&err, "Depsdev.Lookup(%q)", pkgPath)
 	var resp packageResponse
 	if err = get(ctx, d.client, d.packageURL(pkgPath), &resp); err != nil {
 		return Pkg{Path: pkgPath}, err
@@ -81,7 +81,7 @@ type searchResponse struct {
 }
 
 func (d *Depsdev) Search(ctx context.Context, q string) (_ []Pkg, err error) {
-	defer ergoerrors.Annotatef(&err, "Depsdev.Search(%q)", q)
+	defer ergoerrors.Handlef(&err, "Depsdev.Search(%q)", q)
 	var resp searchResponse
 	if err := get(ctx, d.client, d.searchURL(q), &resp); err != nil {
 		return nil, err

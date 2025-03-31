@@ -35,7 +35,7 @@ func (p *Pkgsite) doc(ctx context.Context, url string) (_ *html.Node, err error)
 	if err != nil {
 		return nil, err
 	}
-	defer errors.Annotatef(&err, "doc(%q)", url)
+	defer errors.Handlef(&err, "doc(%q)", url)
 	return html.Parse(bytes.NewReader(resp))
 }
 
@@ -71,7 +71,7 @@ func href(a *html.Node) string {
 }
 
 func (p *Pkgsite) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer errors.Annotatef(&err, "Pkgsite.Lookup(%q)", pkgPath)
+	defer errors.Handlef(&err, "Pkgsite.Lookup(%q)", pkgPath)
 	doc, err := p.doc(ctx, p.baseURL+"/"+pkgPath)
 	if err != nil {
 		return Pkg{Path: pkgPath}, err
@@ -135,7 +135,7 @@ func (p *Pkgsite) parseDoc(ctx context.Context, q string, doc *html.Node) []rank
 }
 
 func (p *Pkgsite) Search(ctx context.Context, q string) (_ []Pkg, err error) {
-	defer errors.Annotatef(&err, "Pkgsite.Search(%q)", q)
+	defer errors.Handlef(&err, "Pkgsite.Search(%q)", q)
 	doc, err := p.doc(ctx, p.searchURL(q))
 	if err != nil {
 		return nil, err
