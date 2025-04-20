@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	ergoerrors "github.com/avamsi/ergo/errors"
+	"github.com/avamsi/gobin/internal/client"
 )
 
 type Depsdev struct {
@@ -51,15 +54,32 @@ func get[T any](ctx context.Context, client Client, url string, v *T) error {
 
 var errNotFound = errors.New("not found")
 
-func (d *Depsdev) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer ergoerrors.Handlef(&err, "Depsdev.Lookup(%q)", pkgPath)
+func (d *Depsdev) lookup(ctx context.Context, pkgPath string) (Pkg, error) {
 	var resp packageResponse
-	if err = get(ctx, d.client, d.packageURL(pkgPath), &resp); err != nil {
+	if err := get(ctx, d.client, d.packageURL(pkgPath), &resp); err != nil {
 		return Pkg{Path: pkgPath}, err
 	}
 	for _, v := range resp.Versions {
 		if v.IsDefault {
 			return Pkg{v.VersionKey.Name, v.VersionKey.Version}, nil
+		}
+	}
+	return Pkg{Path: pkgPath}, errNotFound
+}
+
+func isHTTP404(err error) bool {
+	var herr *client.HttpError
+	return errors.As(err, &herr) && herr.StatusCode == http.StatusNotFound
+}
+
+func (d *Depsdev) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
+	defer ergoerrors.Handlef(&err, "Depsdev.Lookup(%q)", pkgPath)
+	if pkg, err := d.lookup(ctx, pkgPath); !isHTTP404(err) {
+		return pkg, err
+	}
+	for pp := path.Dir(pkgPath); pp != "."; pp = path.Dir(pp) {
+		if pkg, err := d.lookup(ctx, pp); err == nil { // if _no_ error
+			return pkg, nil
 		}
 	}
 	return Pkg{Path: pkgPath}, errNotFound

@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -26,7 +25,7 @@ func (h *Hedging) doUnhedged(req *http.Request) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s %q: %s", req.Method, req.URL, resp.Status)
+		return nil, &HttpError{req.Method, req.URL, resp.Status, resp.StatusCode}
 	}
 	return io.ReadAll(resp.Body)
 }
