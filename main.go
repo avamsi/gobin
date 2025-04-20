@@ -29,11 +29,6 @@ import (
 // gobin is a Go package manager.
 type gobin struct{}
 
-type repository interface {
-	Lookup(ctx context.Context, pkgPath string) (pkg repo.Pkg, err error)
-	Search(ctx context.Context, q string) (pkgs []repo.Pkg, err error)
-}
-
 var (
 	gobinDir = sync.OnceValue(func() string {
 		if v, ok := os.LookupEnv("GOBIN"); ok {
@@ -45,14 +40,14 @@ var (
 		return filepath.Join(assert.Ok(os.UserHomeDir()), "go/bin")
 	})
 
-	installed = sync.OnceValue(func() repository {
+	installed = sync.OnceValue(func() *repo.Installed {
 		return repo.NewInstalled(gobinDir())
 	})
 
 	defaultClient = client.Hedge(&http.Client{Timeout: time.Minute}, time.Second)
 
-	depsdev repository = repo.NewDepsdev(defaultClient, 100)
-	pkgsite repository = repo.NewPkgsite(defaultClient, "https://pkg.go.dev", 100)
+	depsdev = repo.NewDepsdev(defaultClient, 100)
+	pkgsite = repo.NewPkgsite(defaultClient, "https://pkg.go.dev", 100)
 
 	errNoPkgsFound = errors.New("no packages found")
 )
