@@ -13,10 +13,11 @@ Usage:
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  install     Install the package with the given name (suffix matched)
+  install     Install the package with the given name
   list        List all installed packages
   search      Search for packages with the given name (suffix matched)
   uninstall   Uninstall the package with the given name
+  update      Update the installed package(s) with the given name
 
 Flags:
   -h, --help  help for gobin
