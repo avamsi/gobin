@@ -110,6 +110,8 @@ func install(ctx context.Context, pkg repo.Pkg) error {
 //
 // Given name is suffix matched against package paths (via pkg.go.dev).
 // If multiple matches are found, the user is prompted to select one.
+//
+//cli:aliases add
 func (*gobin) Install(ctx context.Context, name string) (err error) {
 	defer ergoerrors.Handlef(&err, "gobin.Install(%q)", name)
 	pkgs, err := search(ctx, name)
@@ -161,6 +163,8 @@ func (*gobin) Uninstall(name string) error {
 }
 
 // List all installed packages.
+//
+//cli:aliases ls
 func (*gobin) List(ctx context.Context) (err error) {
 	defer ergoerrors.Handle(&err, "gobin.List")
 	c := group.NewCollector(make(chan error, 1))
