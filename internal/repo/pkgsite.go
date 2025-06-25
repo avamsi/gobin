@@ -30,12 +30,12 @@ func (p *Pkgsite) searchURL(q string) string {
 		"%s/search?limit=%d&m=package&q=%s", p.baseURL, p.limit, url.QueryEscape(q))
 }
 
-func (p *Pkgsite) doc(ctx context.Context, url string) (_ *html.Node, err error) {
+func (p *Pkgsite) doc(ctx context.Context, url string) (_ *html.Node, e error) {
 	resp, err := p.client.Get(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	defer errors.Handlef(&err, "doc(%q)", url)
+	defer errors.Handlef(&e, "doc(%q)", url)
 	return html.Parse(bytes.NewReader(resp))
 }
 
@@ -70,8 +70,8 @@ func href(a *html.Node) string {
 	panic(fmt.Sprint("no href attribute in", a.Attr))
 }
 
-func (p *Pkgsite) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer errors.Handlef(&err, "Pkgsite.Lookup(%q)", pkgPath)
+func (p *Pkgsite) Lookup(ctx context.Context, pkgPath string) (_ Pkg, e error) {
+	defer errors.Handlef(&e, "Pkgsite.Lookup(%q)", pkgPath)
 	doc, err := p.doc(ctx, p.baseURL+"/"+pkgPath)
 	if err != nil {
 		return Pkg{Path: pkgPath}, err
@@ -134,8 +134,8 @@ func (p *Pkgsite) parseDoc(ctx context.Context, q string, doc *html.Node) []rank
 	return ranks
 }
 
-func (p *Pkgsite) Search(ctx context.Context, q string) (_ []Pkg, err error) {
-	defer errors.Handlef(&err, "Pkgsite.Search(%q)", q)
+func (p *Pkgsite) Search(ctx context.Context, q string) (_ []Pkg, e error) {
+	defer errors.Handlef(&e, "Pkgsite.Search(%q)", q)
 	doc, err := p.doc(ctx, p.searchURL(q))
 	if err != nil {
 		return nil, err

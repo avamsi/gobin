@@ -72,8 +72,8 @@ func isHTTP404(err error) bool {
 	return errors.As(err, &herr) && herr.StatusCode == http.StatusNotFound
 }
 
-func (d *Depsdev) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
-	defer ergoerrors.Handlef(&err, "Depsdev.Lookup(%q)", pkgPath)
+func (d *Depsdev) Lookup(ctx context.Context, pkgPath string) (_ Pkg, e error) {
+	defer ergoerrors.Handlef(&e, "Depsdev.Lookup(%q)", pkgPath)
 	if pkg, err := d.lookup(ctx, pkgPath); !isHTTP404(err) {
 		return pkg, err
 	}
@@ -100,8 +100,8 @@ type searchResponse struct {
 	}
 }
 
-func (d *Depsdev) Search(ctx context.Context, q string) (_ []Pkg, err error) {
-	defer ergoerrors.Handlef(&err, "Depsdev.Search(%q)", q)
+func (d *Depsdev) Search(ctx context.Context, q string) (_ []Pkg, e error) {
+	defer ergoerrors.Handlef(&e, "Depsdev.Search(%q)", q)
 	var resp searchResponse
 	if err := get(ctx, d.client, d.searchURL(q), &resp); err != nil {
 		return nil, err
