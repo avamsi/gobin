@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -30,7 +31,7 @@ func (i *Installed) lookup(name string) (Pkg, error) {
 
 func (i *Installed) Lookup(ctx context.Context, pkgPath string) (_ Pkg, err error) {
 	defer ergoerrors.Handlef(&err, "Installed.Lookup(%q)", pkgPath)
-	pkg, err := i.lookup(pkgPath)
+	pkg, err := i.lookup(path.Base(pkgPath))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			err = nil
