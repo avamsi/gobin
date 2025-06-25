@@ -29,28 +29,28 @@ func (i *Installed) lookup(name string) (Pkg, error) {
 	return Pkg{info.Path, info.Main.Version}, nil
 }
 
+func ignore(err error, target error) error {
+	if errors.Is(err, target) {
+		return nil
+	}
+	return err
+}
+
 func (i *Installed) Lookup(ctx context.Context, pkgPath string) (_ Pkg, e error) {
 	defer ergoerrors.Handlef(&e, "Installed.Lookup(%q)", pkgPath)
-	pkg, err := i.lookup(path.Base(pkgPath))
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			err = nil
-		} else {
-			pkg.Path = pkgPath
-		}
+	if pkg, err := i.lookup(path.Base(pkgPath)); err == nil { // if _no_ error
+		return pkg, nil
+	} else {
+		return Pkg{Path: pkgPath}, ignore(err, fs.ErrNotExist)
 	}
-	return pkg, err
 }
 
 func readdirnames(d string) ([]string, error) {
-	f, err := os.Open(d)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			err = nil
-		}
-		return nil, err
+	if f, err := os.Open(d); err == nil { // if _no_ error
+		return f.Readdirnames(-1)
+	} else {
+		return nil, ignore(err, fs.ErrNotExist)
 	}
-	return f.Readdirnames(-1)
 }
 
 func (i *Installed) Search(ctx context.Context, q string) (_ []Pkg, e error) {
