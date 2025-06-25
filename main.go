@@ -40,8 +40,8 @@ var (
 		return filepath.Join(assert.Ok(os.UserHomeDir()), "go/bin")
 	})
 
-	installed = sync.OnceValue(func() *repo.Installed {
-		return repo.NewInstalled(gobinDir())
+	installed = sync.OnceValue(func() *repo.Local {
+		return repo.NewLocal(gobinDir())
 	})
 
 	defaultClient = client.Hedge(&http.Client{Timeout: time.Minute}, time.Second)
@@ -74,11 +74,11 @@ func (*gobin) Search(ctx context.Context, name string) (e error) {
 	defer ergoerrors.Handlef(&e, "gobin.Search(%q)", name)
 	pkgs, merr := search(ctx, name)
 	for _, pkg := range pkgs {
-		localPkg, err := installed().Lookup(ctx, pkg.Path)
+		installedPkg, err := installed().Lookup(ctx, pkg.Path)
 		if err != nil {
 			merr = ergoerrors.Join(merr, err)
 		}
-		switch v := localPkg.Version; v {
+		switch v := installedPkg.Version; v {
 		case "":
 			fmt.Println(pkg)
 		case pkg.Version:

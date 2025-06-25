@@ -13,16 +13,16 @@ import (
 	ergoerrors "github.com/avamsi/ergo/errors"
 )
 
-type Installed struct {
-	gobin string
+type Local struct {
+	dir string
 }
 
-func NewInstalled(gobin string) *Installed {
-	return &Installed{gobin}
+func NewLocal(dir string) *Local {
+	return &Local{dir}
 }
 
-func (i *Installed) lookup(name string) (Pkg, error) {
-	info, err := buildinfo.ReadFile(filepath.Join(i.gobin, name))
+func (l *Local) lookup(name string) (Pkg, error) {
+	info, err := buildinfo.ReadFile(filepath.Join(l.dir, name))
 	if err != nil {
 		return Pkg{}, err
 	}
@@ -36,9 +36,9 @@ func ignore(err error, target error) error {
 	return err
 }
 
-func (i *Installed) Lookup(ctx context.Context, pkgPath string) (_ Pkg, e error) {
-	defer ergoerrors.Handlef(&e, "Installed.Lookup(%q)", pkgPath)
-	if pkg, err := i.lookup(path.Base(pkgPath)); err == nil { // if _no_ error
+func (l *Local) Lookup(ctx context.Context, pkgPath string) (_ Pkg, e error) {
+	defer ergoerrors.Handlef(&e, "Local.Lookup(%q)", pkgPath)
+	if pkg, err := l.lookup(path.Base(pkgPath)); err == nil { // if _no_ error
 		return pkg, nil
 	} else {
 		return Pkg{Path: pkgPath}, ignore(err, fs.ErrNotExist)
@@ -53,9 +53,9 @@ func readdirnames(d string) ([]string, error) {
 	}
 }
 
-func (i *Installed) Search(ctx context.Context, q string) (_ []Pkg, e error) {
-	defer ergoerrors.Handlef(&e, "Installed.Search(%q)", q)
-	names, err := readdirnames(i.gobin)
+func (l *Local) Search(ctx context.Context, q string) (_ []Pkg, e error) {
+	defer ergoerrors.Handlef(&e, "Local.Search(%q)", q)
+	names, err := readdirnames(l.dir)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (i *Installed) Search(ctx context.Context, q string) (_ []Pkg, e error) {
 		if !strings.HasSuffix(name, q) {
 			continue
 		}
-		if pkg, err := i.lookup(name); err == nil { // if _no_ error
+		if pkg, err := l.lookup(name); err == nil { // if _no_ error
 			pkgs = append(pkgs, pkg)
 		} else {
 			merr = ergoerrors.Join(merr, err)
