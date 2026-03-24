@@ -7,7 +7,7 @@ require (
 	github.com/avamsi/climate v0.0.0-20250610052228-81f96de84ca2
 	github.com/avamsi/ergo v0.0.0-20250610052312-4b5bd243e3b6
 	github.com/erikgeiser/promptkit v0.10.0
-	golang.org/x/net v0.51.0
+	golang.org/x/net v0.52.0
 )
 
 tool github.com/avamsi/climate/cmd/cligen
