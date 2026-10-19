@@ -7,7 +7,7 @@ require (
 	github.com/avamsi/climate v0.0.0-20250610052228-81f96de84ca2
 	github.com/avamsi/ergo v0.0.0-20250610052312-4b5bd243e3b6
 	github.com/erikgeiser/promptkit v0.12.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.61.0
 )
 
 tool github.com/avamsi/climate/cmd/cligen
@@ -41,9 +41,9 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 )
